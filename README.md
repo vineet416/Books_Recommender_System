@@ -5,7 +5,7 @@ An item-based collaborative filtering recommender built on the Book-Crossing rat
 **Live demo:** https://books-recommender-system-vineet416.streamlit.app/
 
 ## Project Files
-
+ 
 | File | Description |
 |---|---|
 | `app.py` | Streamlit app: pick a book, get 5 similar books with covers |
