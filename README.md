@@ -1,209 +1,70 @@
 # 📚 Books Recommender System
 
-A collaborative filtering-based book recommendation system built with Python and Streamlit. This application uses K-Nearest Neighbors (KNN) algorithm to suggest books similar to a user's selection based on user ratings data.
+An item-based collaborative filtering recommender built on the Book-Crossing ratings data. It finds books that the same readers rated similarly, using k-Nearest Neighbors. A Streamlit app returns five similar books with cover images. The notebook documents the full data preparation and model training.
 
-🔗 **Live Demo**: [https://books-recommender-system-vineet416.streamlit.app/](https://books-recommender-system-vineet416.streamlit.app/)
+**Live demo:** https://books-recommender-system-vineet416.streamlit.app/
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-red.svg)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-Latest-orange.svg)
+## Project Files
 
-## 🎯 Features
+| File | Description |
+|---|---|
+| `app.py` | Streamlit app: pick a book, get 5 similar books with covers |
+| `research.ipynb` | Loading, cleaning, filtering, pivot table, model training, artifact export |
+| `artifacts/model.pkl` | Fitted `NearestNeighbors` model (brute force, Euclidean) |
+| `artifacts/book_pivot.pkl` | Book × user rating matrix (742 × 888) |
+| `artifacts/book_names.pkl` | The 742 titles shown in the dropdown |
+| `artifacts/final_rating.pkl` | Cleaned ratings joined with book metadata (59,850 rows) |
+| `requirements.txt` | Python dependencies (unpinned) |
+| `.devcontainer/devcontainer.json` | Python 3.11 dev container that starts the app on port 8501 |
+| `LICENSE` | MIT license |
 
-- **Collaborative Filtering**: Recommendations based on user rating patterns
-- **Interactive UI**: Clean and intuitive Streamlit interface
-- **Visual Recommendations**: Displays book covers for recommended titles
-- **Real-time Suggestions**: Get 5 book recommendations instantly
-- **Large Dataset**: Trained on Book-Crossing dataset with thousands of books and ratings
+## Dataset
 
-## 🛠️ Technologies Used
+Source: Book-Crossing dataset, read from `Datasets/` (not in this repo): `BX-Books.csv` (271,360 rows), `BX-Users.csv` (278,858), `BX-Book-Ratings.csv` (1,149,780). Modeling table `final_rating`: 59,850 rows × 9 columns, no missing values.
 
-- **Python 3.8+**
-- **Streamlit** - Web application framework
-- **NumPy** - Numerical computing
-- **Pandas** - Data manipulation and analysis
-- **Scikit-learn** - Machine learning (KNN algorithm)
-- **Pickle** - Model serialization
+| Column | Description |
+|---|---|
+| `user_id` | Anonymous reader ID (888 unique) |
+| `ISBN` | Edition ID (2,176 unique) |
+| `rating` | 0–10; 0 means no explicit rating |
+| `title` / `author` | Book title (742 unique) and author (584 unique) |
+| `year` / `publisher` | Publication year (text) and publisher (357 unique) |
+| `image_url` | Large cover image URL |
+| `number_of_ratings` | Title's rating count before de-duplication (50–363) |
 
-## 📁 Project Structure
+## Approach
 
-```
-Books Recommender Project/
-│
-├── app.py                      # Main Streamlit application
-├── research.ipynb              # Jupyter notebook for EDA and model training
-├── requirements.txt            # Project dependencies
-│
-├── artifacts/                  # Serialized models and data
-│   ├── model.pkl              # Trained KNN model
-│   ├── book_names.pkl         # List of book titles
-│   ├── book_pivot.pkl         # Pivot table of user-book ratings
-│   └── final_rating.pkl       # Processed ratings with metadata
-│
-├── Datasets/                   # Raw datasets (Book-Crossing)
-│   ├── BX-Books.csv           # Book information
-│   ├── BX-Users.csv           # User information
-│   └── BX-Book-Ratings.csv    # User ratings
-│
-└── env/                        # Virtual environment (not tracked in git)
-```
+1. **Understand the data:** load the three CSVs, check shapes, rename columns, drop small and medium image columns.
+2. **Filter users:** keep users with more than 200 ratings (899 of 105,283 raters) → 526,356 ratings.
+3. **Join and filter books:** merge ratings with books on ISBN, keep titles with at least 50 ratings, drop duplicate (user, title) pairs.
+4. **Build the matrix:** pivot to title × user, fill missing with 0, convert to a sparse CSR matrix.
+5. **Train:** `NearestNeighbors(algorithm='brute')`, k = 6 (the book itself + 5 neighbors).
+6. **Serve:** pickle four artifacts; `app.py` looks up neighbors and fetches cover URLs.
 
-## 🚀 Getting Started
+## Key Insights
 
-### Prerequisites
+Recomputed from the artifacts (the raw CSVs are not available).
 
-- Python 3.8 or higher
-- pip package manager
+| Finding | Value |
+|---|---|
+| Data kept after filters | 59,850 of 1,149,780 ratings (5.2%) |
+| Explicit ratings (1–10) | 14,961 (25.0%); the other 75.0% are zeros. Matrix density is 2.27% |
+| Explicit rating average / median | 7.96 / 8; 66.7% of ratings are 8–10, only 2.9% are 1–4 |
+| Most explicitly rated | *The Lovely Bones* (104, avg 8.32), *Bridget Jones's Diary* (84, 7.49), *The Da Vinci Code* (82, 8.59) |
+| Highest average (≥ 20 ratings) | *The Two Towers* 9.74, *The Return of the King* 9.57, *The Secret Garden* 9.46 |
+| Most rows, few real ratings | *Wild Animus*: 363 rows, only 38 explicit, avg 4.18 |
+| Example output | *Harry Potter and the Chamber of Secrets* → Books 4, 3, 1, then *Exclusive*, *The Cradle Will Fall* |
+| "Hub" books | *Exclusive* is in 579 of 742 top-5 lists, *No Safe Place* in 515 (3 explicit ratings each); 434 books (58.5%) are never recommended |
 
-### Installation
+## Tech Stack
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/vineet416/Books_Recommender_System.git
-   cd "Books Recommender Project"
-   ```
+- **Language and data:** Python 3.11, pandas, NumPy, SciPy (sparse CSR matrix)
+- **Model:** scikit-learn `NearestNeighbors` (item-based collaborative filtering)
+- **App and tooling:** Streamlit, `pickle`, Jupyter Notebook, VS Code Dev Container
 
-2. **Create a virtual environment** (recommended)
-   ```bash
-   conda create -n env python=3.11
-   conda activate env/
-   ```
+## How to Use
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Ensure artifacts folder exists**
-   Make sure the `artifacts/` folder contains all the required pickle files:
-   - `model.pkl`
-   - `book_names.pkl`
-   - `book_pivot.pkl`
-   - `final_rating.pkl`
-
-### Running the Application
-
-1. **Start the Streamlit app**
-   ```bash
-   streamlit run app.py
-   ```
-
-2. **Open your browser**
-   The application will automatically open in your default browser at `http://localhost:8501`
-
-3. **Use the application**
-   - Select a book from the dropdown menu
-   - Click "Show Recommendation"
-   - View 5 similar book recommendations with cover images
-
-## 📊 How It Works
-
-### Collaborative Filtering Approach
-
-1. **Data Preprocessing**: 
-   - Loads Book-Crossing dataset containing books, users, and ratings
-   - Filters users with significant rating history
-   - Filters popular books with sufficient ratings
-   - Creates a user-book rating matrix
-
-2. **Model Training**:
-   - Uses K-Nearest Neighbors (KNN) algorithm
-   - Calculates similarity between books based on user rating patterns
-   - Books rated similarly by the same users are considered similar
-
-3. **Recommendation Generation**:
-   - Takes a selected book as input
-   - Finds the 6 nearest neighbors (including the input book)
-   - Returns 5 most similar books with cover images
-
-### Algorithm Details
-
-- **Algorithm**: K-Nearest Neighbors (KNN)
-- **Similarity Metric**: Cosine similarity / Euclidean distance
-- **Number of Neighbors**: 6 (returns 5 recommendations)
-- **Approach**: User-Item Collaborative Filtering
-
-## 📈 Dataset
-
-The project uses the **Book-Crossing Dataset**, which contains:
-- **Books**: 271,360 books with metadata (ISBN, title, author, publisher, etc.)
-- **Users**: 278,858 users (anonymized)
-- **Ratings**: 1,149,780 ratings (scale 0-10)
-
-**Dataset Source**: [Book Recommendation Dataset on Kaggle](https://www.kaggle.com/datasets/ra4u12/bookrecommendation)
-
-*Original Source: Book-Crossing dataset collected by Cai-Nicolas Ziegler*
-
-## 🔧 Model Training
-
-To retrain the model or explore the data analysis process:
-
-1. Open `research.ipynb` in Jupyter Notebook or VS Code
-2. Run all cells sequentially
-3. The notebook will:
-   - Load and explore the datasets
-   - Perform data cleaning and preprocessing
-   - Create the user-item matrix
-   - Train the KNN model
-   - Save artifacts to the `artifacts/` folder
-
-## 📝 Key Functions
-
-### `recommend_book(book_name)`
-- **Input**: Book title (string)
-- **Output**: List of recommended books and their poster URLs
-- **Process**: Finds nearest neighbors using KNN model
-
-### `fetch_poster(suggestion)`
-- **Input**: Book indices from KNN suggestions
-- **Output**: List of poster/cover image URLs
-- **Process**: Maps book indices to image URLs from dataset
-
-## 🎨 User Interface
-
-The Streamlit interface includes:
-- Clean header with emoji icon
-- Descriptive subtitle and methodology info
-- Searchable dropdown for book selection
-- Recommendation button
-- 5-column grid layout for displaying results
-- Book titles and cover images for each recommendation
-- Error handling with user-friendly messages
-
-## 🤝 Contributing
-
-Contributions are welcome! Here are some ways you can contribute:
-- Report bugs and issues
-- Suggest new features or improvements
-- Improve documentation
-- Add new recommendation algorithms
-- Enhance the UI/UX
-
-## 📄 License
-
-This project is open-source and available for educational purposes.
-
-## 🙏 Acknowledgments
-
-- **Book-Crossing Dataset** - For providing the comprehensive books and ratings data
-- **Streamlit** - For the excellent web framework
-- **Scikit-learn** - For machine learning tools
-
-## � Author
-
-**Vineet Patel**
-- �📧 Email: vineetpatel468@gmail.com
-- 💻 GitHub: [@vineet416](https://github.com/vineet416)
-- 🔗 LinkedIn: [@vineet416](https://www.linkedin.com/in/vineet416/)
-
-## 📧 Contact
-
-For questions or feedback, please open an issue in the repository or reach out via email.
-
----
-
-**Note**: Make sure to have all pickle files generated before running the app. Run the `research.ipynb` notebook first to generate these files if they don't exist.
-
----
-
-⭐ If you found this project helpful, please give it a star!
+1. Install dependencies: `pip install -r requirements.txt`
+2. Start the app: `streamlit run app.py` (opens at `http://localhost:8501`)
+3. Choose a book, then click **Show Recommendation**.
+4. To retrain, place the three CSVs in `Datasets/` and run all cells in `research.ipynb`.
